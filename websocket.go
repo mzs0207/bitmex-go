@@ -19,12 +19,14 @@ type WS struct {
 	conn    *websocket.Conn
 	log     *log.Logger
 	chTrade map[chan WSTrade][]Contracts
+	chQuote map[chan WSQuote][]Contracts
 }
 
 //NewWS - creates new websocket object
 func NewWS() *WS {
 	return &WS{
 		chTrade: make(map[chan WSTrade][]Contracts, 0),
+		chQuote: make(map[chan WSQuote][]Contracts, 0),
 	}
 }
 
@@ -85,6 +87,15 @@ func (ws *WS) read() {
 				for _, one := range trades {
 					ws.trade(one)
 				}
+			case "quote":
+				var quotes []WSQuote
+				json.Unmarshal(table.Data, &quotes)
+
+				log.Debugf("Quotes: %#v", quotes)
+
+				for _, one := range quotes {
+					ws.quote(one)
+				}
 			}
 		default:
 			ws.fatal(errors.New("Unkown WS message"))
@@ -104,6 +115,18 @@ func (ws *WS) sendTrade(ch chan WSTrade, trade WSTrade) {
 	}
 }
 
+func (ws *WS) sendQuote(ch chan WSQuote, quote WSQuote) {
+	select {
+	case ch <- quote:
+		log.Debugf("Quote sent: %#v - %#v", ch, quote)
+	default:
+		log.Debugf("Quote channel deleted: %#v", ch)
+		ws.Lock()
+		delete(ws.chQuote, ch)
+		ws.Unlock()
+	}
+}
+
 func (ws *WS) trade(trade WSTrade) {
 	for ch, symbols := range ws.chTrade {
 		if len(symbols) == 0 {
@@ -114,6 +137,21 @@ func (ws *WS) trade(trade WSTrade) {
 		for _, oneSymbol := range symbols {
 			if oneSymbol == Contracts(trade.Symbol) {
 				ws.sendTrade(ch, trade)
+			}
+		}
+	}
+}
+
+func (ws *WS) quote(quote WSQuote) {
+	for ch, symbols := range ws.chQuote {
+		if len(symbols) == 0 {
+			ws.sendQuote(ch, quote)
+			continue
+		}
+
+		for _, oneSymbol := range symbols {
+			if oneSymbol == Contracts(quote.Symbol) {
+				ws.sendQuote(ch, quote)
 			}
 		}
 	}
@@ -149,5 +187,22 @@ func (ws *WS) SubTrade(ch chan WSTrade, contracts []Contracts) {
 
 	for _, one := range contracts {
 		ws.send(`{"op": "subscribe", "args": "trade:` + string(one) + `"}`)
+	}
+}
+
+func (ws *WS) SubQuote(ch chan WSQuote, contracts []Contracts) {
+
+	ws.Lock()
+
+	if _, ok := ws.chQuote[ch]; !ok {
+		ws.chQuote[ch] = contracts
+	} else {
+		ws.chQuote[ch] = append(ws.chQuote[ch], contracts...)
+	}
+
+	ws.Unlock()
+
+	for _, one := range contracts {
+		ws.send(`{"op": "subscribe", "args": "quote:` + string(one) + `"}`)
 	}
 }

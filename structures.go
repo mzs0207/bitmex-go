@@ -18,6 +18,15 @@ type WSTrade struct {
 	Timestamp       time.Time `json:"timestamp"`
 }
 
+type WSQuote struct {
+	Timestamp time.Time `json:"timestamp"`
+	Symbol    string    `json:"symbol"`
+	BidPrice  float64   `json:"bidPrice"`
+	BidSize   int       `json:"bidSize"`
+	AskPrice  float64   `json:"askPrice"`
+	AskSize   int       `json:"askSize"`
+}
+
 type wsData struct {
 	Table       string            `json:"table"`
 	Action      string            `json:"action"`

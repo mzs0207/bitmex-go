@@ -28,4 +28,22 @@ var _ = Describe("BitmexGo", func() {
 			Fail("Nothing was received")
 		}
 	})
+
+	It("Quote", func() {
+		SetDefaultEventuallyTimeout(time.Second)
+		log.SetLevel(log.DebugLevel)
+
+		ws := bitmex.NewWS()
+		err := ws.Connect()
+		Expect(err).Should(Succeed())
+
+		ch := make(chan bitmex.WSQuote)
+		ws.SubQuote(ch, []bitmex.Contracts{bitmex.XBTUSD})
+
+		select {
+		case <-ch:
+		case <-time.After(time.Second):
+			Fail("Nothing was received")
+		}
+	})
 })
