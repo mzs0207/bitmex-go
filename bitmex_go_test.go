@@ -1,6 +1,7 @@
 package bitmex_test
 
 import (
+	"os"
 	"time"
 
 	"github.com/apex/log"
@@ -45,5 +46,27 @@ var _ = Describe("BitmexGo", func() {
 		case <-time.After(time.Second):
 			Fail("Nothing was received")
 		}
+	})
+
+	FIt("Authenticate", func() {
+		log.SetLevel(log.DebugLevel)
+
+		key, found := os.LookupEnv("BITMEX_KEY")
+
+		if !found {
+			Fail("Missing BITMEX_KEY variable")
+		}
+
+		secret, found := os.LookupEnv("BITMEX_SECRET")
+
+		if !found {
+			Fail("Missing BITMEX_SECRET variable")
+		}
+
+		ws := bitmex.NewWS()
+		err := ws.Connect()
+		Expect(err).Should(Succeed())
+		ws.Auth(key, secret)
+		time.Sleep(4 * time.Second)
 	})
 })

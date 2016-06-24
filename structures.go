@@ -22,9 +22,9 @@ type WSQuote struct {
 	Timestamp time.Time `json:"timestamp"`
 	Symbol    string    `json:"symbol"`
 	BidPrice  float64   `json:"bidPrice"`
-	BidSize   int       `json:"bidSize"`
+	BidSize   int64     `json:"bidSize"`
 	AskPrice  float64   `json:"askPrice"`
-	AskSize   int       `json:"askSize"`
+	AskSize   int64     `json:"askSize"`
 }
 
 type wsData struct {
@@ -53,7 +53,4 @@ type wsInfo struct {
 
 type wsError struct {
 	Error string `json:"error"`
-}
-
-type Trade struct {
 }

@@ -1,10 +1,15 @@
 package bitmex
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/apex/log"
 
@@ -18,6 +23,9 @@ type WS struct {
 	sync.Mutex
 	conn    *websocket.Conn
 	log     *log.Logger
+	nonce   int64
+	key     string
+	secret  string
 	chTrade map[chan WSTrade][]Contracts
 	chQuote map[chan WSQuote][]Contracts
 }
@@ -25,6 +33,7 @@ type WS struct {
 //NewWS - creates new websocket object
 func NewWS() *WS {
 	return &WS{
+		nonce:   time.Now().Unix(),
 		chTrade: make(map[chan WSTrade][]Contracts, 0),
 		chQuote: make(map[chan WSQuote][]Contracts, 0),
 	}
@@ -190,6 +199,7 @@ func (ws *WS) SubTrade(ch chan WSTrade, contracts []Contracts) {
 	}
 }
 
+//SubQuote - subscribes to quotes
 func (ws *WS) SubQuote(ch chan WSQuote, contracts []Contracts) {
 
 	ws.Lock()
@@ -205,4 +215,34 @@ func (ws *WS) SubQuote(ch chan WSQuote, contracts []Contracts) {
 	for _, one := range contracts {
 		ws.send(`{"op": "subscribe", "args": "quote:` + string(one) + `"}`)
 	}
+}
+
+//Auth - authentication
+func (ws *WS) Auth(key, secret string) {
+	ws.key = key
+	ws.secret = secret
+
+	nonce := ws.Nonce()
+
+	req := fmt.Sprintf("GET/realtime%d", nonce)
+	signature := ws.sign(req)
+
+	msg := fmt.Sprintf(
+		`{"op": "authKey", "args": ["%s", %d, "%s"]}`,
+		key, nonce, signature,
+	)
+
+	ws.send(msg)
+}
+
+func (ws *WS) sign(payload string) string {
+	sig := hmac.New(sha256.New, []byte(ws.secret))
+	sig.Write([]byte(payload))
+	return hex.EncodeToString(sig.Sum(nil))
+}
+
+//Nonce - gets next nonce
+func (ws *WS) Nonce() int64 {
+	ws.nonce++
+	return ws.nonce
 }
