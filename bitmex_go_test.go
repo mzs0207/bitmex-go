@@ -48,7 +48,7 @@ var _ = Describe("BitmexGo", func() {
 		}
 	})
 
-	FIt("Authenticate", func() {
+	It("Authenticate", func() {
 		log.SetLevel(log.DebugLevel)
 
 		key, found := os.LookupEnv("BITMEX_KEY")
@@ -66,7 +66,34 @@ var _ = Describe("BitmexGo", func() {
 		ws := bitmex.NewWS()
 		err := ws.Connect()
 		Expect(err).Should(Succeed())
-		ws.Auth(key, secret)
-		time.Sleep(4 * time.Second)
+		_ = ws.Auth(key, secret)
+		time.Sleep(time.Second)
+	})
+
+	It("Authenticate + chan", func() {
+		log.SetLevel(log.DebugLevel)
+
+		key, found := os.LookupEnv("BITMEX_KEY")
+
+		if !found {
+			Fail("Missing BITMEX_KEY variable")
+		}
+
+		secret, found := os.LookupEnv("BITMEX_SECRET")
+
+		if !found {
+			Fail("Missing BITMEX_SECRET variable")
+		}
+
+		ws := bitmex.NewWS()
+		err := ws.Connect()
+		Expect(err).Should(Succeed())
+		chAuth := ws.Auth(key, secret)
+
+		select {
+		case <-chAuth:
+		case <-time.After(2 * time.Second):
+			Fail("No auth signal received")
+		}
 	})
 })

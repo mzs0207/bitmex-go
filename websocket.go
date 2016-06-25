@@ -28,6 +28,7 @@ type WS struct {
 	secret  string
 	chTrade map[chan WSTrade][]Contracts
 	chQuote map[chan WSQuote][]Contracts
+	chSucc  map[string][]chan struct{}
 }
 
 //NewWS - creates new websocket object
@@ -36,6 +37,7 @@ func NewWS() *WS {
 		nonce:   time.Now().Unix(),
 		chTrade: make(map[chan WSTrade][]Contracts, 0),
 		chQuote: make(map[chan WSQuote][]Contracts, 0),
+		chSucc:  make(map[string][]chan struct{}, 0),
 	}
 }
 
@@ -75,6 +77,15 @@ func (ws *WS) read() {
 			var success wsSuccess
 			json.Unmarshal([]byte(msg), &success)
 			log.Debugf("Success: %v", success)
+
+			if channels, found := ws.chSucc[success.Request["op"]]; found {
+				for _, ch := range channels {
+					select {
+					case ch <- struct{}{}:
+					default:
+					}
+				}
+			}
 
 		case strings.HasPrefix(msg, `{"info"`):
 			var info wsInfo
@@ -218,7 +229,7 @@ func (ws *WS) SubQuote(ch chan WSQuote, contracts []Contracts) {
 }
 
 //Auth - authentication
-func (ws *WS) Auth(key, secret string) {
+func (ws *WS) Auth(key, secret string) chan struct{} {
 	ws.key = key
 	ws.secret = secret
 
@@ -232,7 +243,14 @@ func (ws *WS) Auth(key, secret string) {
 		key, nonce, signature,
 	)
 
+	ch := make(chan struct{})
+	ws.Lock()
+	ws.chSucc["authKey"] = append(ws.chSucc["authKey"], ch)
+	ws.Unlock()
+
 	ws.send(msg)
+
+	return ch
 }
 
 func (ws *WS) sign(payload string) string {
