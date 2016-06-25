@@ -1,12 +1,8 @@
 package bitmex
 
 import (
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -28,6 +24,7 @@ type WS struct {
 	secret  string
 	chTrade map[chan WSTrade][]Contracts
 	chQuote map[chan WSQuote][]Contracts
+	chOrder map[chan WSOrder][]Contracts
 	chSucc  map[string][]chan struct{}
 }
 
@@ -37,6 +34,7 @@ func NewWS() *WS {
 		nonce:   time.Now().Unix(),
 		chTrade: make(map[chan WSTrade][]Contracts, 0),
 		chQuote: make(map[chan WSQuote][]Contracts, 0),
+		chOrder: make(map[chan WSOrder][]Contracts, 0),
 		chSucc:  make(map[string][]chan struct{}, 0),
 	}
 }
@@ -76,9 +74,18 @@ func (ws *WS) read() {
 		case strings.HasPrefix(msg, `{"success"`):
 			var success wsSuccess
 			json.Unmarshal([]byte(msg), &success)
-			log.Debugf("Success: %v", success)
+			log.Debugf("Success: %#v", success)
 
 			if channels, found := ws.chSucc[success.Request["op"]]; found {
+				for _, ch := range channels {
+					select {
+					case ch <- struct{}{}:
+					default:
+					}
+				}
+			}
+
+			if channels, found := ws.chSucc[success.Request["args"]]; found {
 				for _, ch := range channels {
 					select {
 					case ch <- struct{}{}:
@@ -116,6 +123,16 @@ func (ws *WS) read() {
 				for _, one := range quotes {
 					ws.quote(one)
 				}
+
+			case "order":
+				var orders []WSOrder
+				json.Unmarshal(table.Data, &orders)
+
+				log.Debugf("Orders: %#v", orders)
+
+				for _, one := range orders {
+					ws.order(one)
+				}
 			}
 		default:
 			ws.fatal(errors.New("Unkown WS message"))
@@ -131,6 +148,18 @@ func (ws *WS) sendTrade(ch chan WSTrade, trade WSTrade) {
 		log.Debugf("Trade channel deleted: %#v", ch)
 		ws.Lock()
 		delete(ws.chTrade, ch)
+		ws.Unlock()
+	}
+}
+
+func (ws *WS) sendOrder(ch chan WSOrder, order WSOrder) {
+	select {
+	case ch <- order:
+		log.Debugf("Order sent: %#v - %#v", ch, order)
+	default:
+		log.Debugf("Order channel deleted: %#v", ch)
+		ws.Lock()
+		delete(ws.chOrder, ch)
 		ws.Unlock()
 	}
 }
@@ -157,6 +186,21 @@ func (ws *WS) trade(trade WSTrade) {
 		for _, oneSymbol := range symbols {
 			if oneSymbol == Contracts(trade.Symbol) {
 				ws.sendTrade(ch, trade)
+			}
+		}
+	}
+}
+
+func (ws *WS) order(order WSOrder) {
+	for ch, symbols := range ws.chOrder {
+		if len(symbols) == 0 {
+			ws.sendOrder(ch, order)
+			continue
+		}
+
+		for _, oneSymbol := range symbols {
+			if oneSymbol == Contracts(order.Symbol) {
+				ws.sendOrder(ch, order)
 			}
 		}
 	}
@@ -226,41 +270,4 @@ func (ws *WS) SubQuote(ch chan WSQuote, contracts []Contracts) {
 	for _, one := range contracts {
 		ws.send(`{"op": "subscribe", "args": "quote:` + string(one) + `"}`)
 	}
-}
-
-//Auth - authentication
-func (ws *WS) Auth(key, secret string) chan struct{} {
-	ws.key = key
-	ws.secret = secret
-
-	nonce := ws.Nonce()
-
-	req := fmt.Sprintf("GET/realtime%d", nonce)
-	signature := ws.sign(req)
-
-	msg := fmt.Sprintf(
-		`{"op": "authKey", "args": ["%s", %d, "%s"]}`,
-		key, nonce, signature,
-	)
-
-	ch := make(chan struct{})
-	ws.Lock()
-	ws.chSucc["authKey"] = append(ws.chSucc["authKey"], ch)
-	ws.Unlock()
-
-	ws.send(msg)
-
-	return ch
-}
-
-func (ws *WS) sign(payload string) string {
-	sig := hmac.New(sha256.New, []byte(ws.secret))
-	sig.Write([]byte(payload))
-	return hex.EncodeToString(sig.Sum(nil))
-}
-
-//Nonce - gets next nonce
-func (ws *WS) Nonce() int64 {
-	ws.nonce++
-	return ws.nonce
 }

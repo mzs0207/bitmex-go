@@ -3,8 +3,11 @@ package bitmex
 import (
 	"encoding/json"
 	"time"
+
+	"github.com/satori/go.uuid"
 )
 
+//WSTrade - trade structure
 type WSTrade struct {
 	Size            float64   `json:"size"`
 	Price           float64   `json:"price"`
@@ -18,6 +21,7 @@ type WSTrade struct {
 	Timestamp       time.Time `json:"timestamp"`
 }
 
+//WSQuote - quote structure
 type WSQuote struct {
 	Timestamp time.Time `json:"timestamp"`
 	Symbol    string    `json:"symbol"`
@@ -25,6 +29,40 @@ type WSQuote struct {
 	BidSize   int64     `json:"bidSize"`
 	AskPrice  float64   `json:"askPrice"`
 	AskSize   int64     `json:"askSize"`
+}
+
+//WSOrder - order structure
+type WSOrder struct {
+	Timestamp             time.Time `json:"timestamp"`
+	TransactTime          time.Time `json:"transactTime"`
+	OrderID               uuid.UUID `json:"orderID"`
+	OrderQty              int64     `json:"orderQty"`
+	Account               int64     `json:"account"`
+	DisplayQty            int64     `json:"displayQty"`
+	LeavesQty             int64     `json:"leavesQty"`
+	CumQty                int64     `json:"cumQty"`
+	Price                 float64   `json:"price"`
+	SimpleOrderQty        float64   `json:"simpleOrderQty"`
+	StopPx                float64   `json:"stopPx"`
+	PegOffsetValue        float64   `json:"pegOffsetValue"`
+	SimpleCumQty          float64   `json:"simpleCumQty"`
+	SimpleLeavesQty       float64   `json:"simpleLeavesQty"`
+	AvgPx                 float64   `json:"avgPx"`
+	Side                  string    `json:"side"`
+	ClOrdID               string    `json:"clOrdID"`
+	Symbol                Contracts `json:"symbol"`
+	PegPriceType          string    `json:"pegPriceType"`
+	Currency              Contracts `json:"currency"`
+	SettlCurrency         Contracts `json:"settlCurrency"`
+	ExecInst              string    `json:"execInst"`
+	ContingencyType       string    `json:"contingencyType"`
+	ExDestination         string    `json:"exDestination"`
+	OrdStatus             string    `json:"ordStatus"`
+	Triggered             string    `json:"triggered"`
+	WorkingIndicator      string    `json:"workingIndicator"`
+	OrdRejReason          string    `json:"ordRejReason"`
+	MultiLegReportingType string    `json:"multiLegReportingType"`
+	Text                  string    `json:"text"`
 }
 
 type wsData struct {
