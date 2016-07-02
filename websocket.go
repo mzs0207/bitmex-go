@@ -145,10 +145,7 @@ func (ws *WS) sendTrade(ch chan WSTrade, trade WSTrade) {
 	case ch <- trade:
 		log.Debugf("Trade sent: %#v - %#v", ch, trade)
 	default:
-		log.Debugf("Trade channel deleted: %#v", ch)
-		ws.Lock()
-		delete(ws.chTrade, ch)
-		ws.Unlock()
+		log.Debugf("Trade channel busy: %#v", ch)
 	}
 }
 
@@ -157,10 +154,7 @@ func (ws *WS) sendOrder(ch chan WSOrder, order WSOrder) {
 	case ch <- order:
 		log.Debugf("Order sent: %#v - %#v", ch, order)
 	default:
-		log.Debugf("Order channel deleted: %#v", ch)
-		ws.Lock()
-		delete(ws.chOrder, ch)
-		ws.Unlock()
+		log.Debugf("Order channel busy: %#v", ch)
 	}
 }
 
@@ -169,10 +163,7 @@ func (ws *WS) sendQuote(ch chan WSQuote, quote WSQuote) {
 	case ch <- quote:
 		log.Debugf("Quote sent: %#v - %#v", ch, quote)
 	default:
-		log.Debugf("Quote channel deleted: %#v", ch)
-		ws.Lock()
-		delete(ws.chQuote, ch)
-		ws.Unlock()
+		log.Debugf("Quote channel busy: %#v", ch)
 	}
 }
 
