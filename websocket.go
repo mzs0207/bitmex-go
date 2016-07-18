@@ -17,25 +17,27 @@ const wsURL = "wss://www.bitmex.com/realtime"
 //WS - websocket connection object
 type WS struct {
 	sync.Mutex
-	conn    *websocket.Conn
-	log     *log.Logger
-	nonce   int64
-	key     string
-	secret  string
-	chTrade map[chan WSTrade][]Contracts
-	chQuote map[chan WSQuote][]Contracts
-	chOrder map[chan WSOrder][]Contracts
-	chSucc  map[string][]chan struct{}
+	conn       *websocket.Conn
+	log        *log.Logger
+	nonce      int64
+	key        string
+	secret     string
+	chTrade    map[chan WSTrade][]Contracts
+	chQuote    map[chan WSQuote][]Contracts
+	chOrder    map[chan WSOrder][]Contracts
+	chPosition map[chan WSPosition][]Contracts
+	chSucc     map[string][]chan struct{}
 }
 
 //NewWS - creates new websocket object
 func NewWS() *WS {
 	return &WS{
-		nonce:   time.Now().Unix(),
-		chTrade: make(map[chan WSTrade][]Contracts, 0),
-		chQuote: make(map[chan WSQuote][]Contracts, 0),
-		chOrder: make(map[chan WSOrder][]Contracts, 0),
-		chSucc:  make(map[string][]chan struct{}, 0),
+		nonce:      time.Now().Unix(),
+		chTrade:    make(map[chan WSTrade][]Contracts, 0),
+		chQuote:    make(map[chan WSQuote][]Contracts, 0),
+		chOrder:    make(map[chan WSOrder][]Contracts, 0),
+		chPosition: make(map[chan WSPosition][]Contracts, 0),
+		chSucc:     make(map[string][]chan struct{}, 0),
 	}
 }
 
@@ -105,6 +107,7 @@ func (ws *WS) read() {
 			log.Debugf("Table: %#v", table)
 
 			switch table.Table {
+
 			case "trade":
 				var trades []WSTrade
 				json.Unmarshal(table.Data, &trades)
@@ -114,6 +117,7 @@ func (ws *WS) read() {
 				for _, one := range trades {
 					ws.trade(one)
 				}
+
 			case "quote":
 				var quotes []WSQuote
 				json.Unmarshal(table.Data, &quotes)
@@ -132,6 +136,16 @@ func (ws *WS) read() {
 
 				for _, one := range orders {
 					ws.order(one)
+				}
+
+			case "position":
+				var positions []WSPosition
+				json.Unmarshal(table.Data, &positions)
+
+				log.Debugf("Positions: %#v", positions)
+
+				for _, one := range positions {
+					ws.position(one)
 				}
 			}
 		default:
@@ -167,6 +181,15 @@ func (ws *WS) sendQuote(ch chan WSQuote, quote WSQuote) {
 	}
 }
 
+func (ws *WS) sendPosition(ch chan WSPosition, position WSPosition) {
+	select {
+	case ch <- position:
+		log.Debugf("Position sent: %#v - %#v", ch, position)
+	default:
+		log.Debugf("Position channel busy: %#v", ch)
+	}
+}
+
 func (ws *WS) trade(trade WSTrade) {
 	for ch, symbols := range ws.chTrade {
 		if len(symbols) == 0 {
@@ -192,6 +215,21 @@ func (ws *WS) order(order WSOrder) {
 		for _, oneSymbol := range symbols {
 			if oneSymbol == Contracts(order.Symbol) {
 				ws.sendOrder(ch, order)
+			}
+		}
+	}
+}
+
+func (ws *WS) position(position WSPosition) {
+	for ch, symbols := range ws.chPosition {
+		if len(symbols) == 0 {
+			ws.sendPosition(ch, position)
+			continue
+		}
+
+		for _, oneSymbol := range symbols {
+			if oneSymbol == Contracts(position.Symbol) {
+				ws.sendPosition(ch, position)
 			}
 		}
 	}

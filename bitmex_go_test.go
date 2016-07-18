@@ -128,4 +128,36 @@ var _ = Describe("BitmexGo", func() {
 			Fail("No order received")
 		}
 	})
+
+	It("Position", func() {
+		log.SetLevel(log.DebugLevel)
+
+		key, found := os.LookupEnv("BITMEX_KEY")
+
+		if !found {
+			Fail("Missing BITMEX_KEY variable")
+		}
+
+		secret, found := os.LookupEnv("BITMEX_SECRET")
+
+		if !found {
+			Fail("Missing BITMEX_SECRET variable")
+		}
+
+		ws := bitmex.NewWS()
+		err := ws.Connect()
+		Expect(err).Should(Succeed())
+		chAuth := ws.Auth(key, secret)
+
+		<-chAuth
+
+		chPosition := make(chan bitmex.WSPosition, 100)
+		_ = ws.SubPosition(chPosition, []bitmex.Contracts{})
+
+		select {
+		case <-chPosition:
+		case <-time.After(20 * time.Second):
+			Fail("No position received")
+		}
+	})
 })

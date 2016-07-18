@@ -59,6 +59,21 @@ func (ws *WS) SubOrder(ch chan WSOrder, contracts []Contracts) chan struct{} {
 	return ws.subPrivate("order")
 }
 
+//SubPosition - subscribe to position chage events
+func (ws *WS) SubPosition(ch chan WSPosition, contracts []Contracts) chan struct{} {
+	ws.Lock()
+
+	if _, ok := ws.chPosition[ch]; !ok {
+		ws.chPosition[ch] = contracts
+	} else {
+		ws.chPosition[ch] = append(ws.chPosition[ch], contracts...)
+	}
+
+	ws.Unlock()
+
+	return ws.subPrivate("position")
+}
+
 func (ws *WS) subPrivate(topic string) chan struct{} {
 
 	ch := make(chan struct{})

@@ -24,11 +24,23 @@ type WSTrade struct {
 //WSQuote - quote structure
 type WSQuote struct {
 	Timestamp time.Time `json:"timestamp"`
-	Symbol    string    `json:"symbol"`
+	Symbol    Contracts `json:"symbol"`
 	BidPrice  float64   `json:"bidPrice"`
 	BidSize   int64     `json:"bidSize"`
 	AskPrice  float64   `json:"askPrice"`
 	AskSize   int64     `json:"askSize"`
+}
+
+//WSPosition - position structure
+type WSPosition struct {
+	Timestamp        time.Time `json:"timestamp"`
+	Symbol           Contracts `json:"symbol"`
+	Account          int64     `json:"account"`
+	CurrentQty       int64     `json:"currentQty"`
+	MarkPrice        float64   `json:"markPrice"`
+	SimpleQty        float64   `json:"simpleQty"`
+	SimplePnl        float64   `json:"simplePnl"`
+	LiquidationPrice float64   `json:"liquidationPrice"`
 }
 
 //WSOrder - order structure
