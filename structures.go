@@ -24,7 +24,7 @@ type WSTrade struct {
 //WSQuote - quote structure
 type WSQuote struct {
 	Timestamp time.Time `json:"timestamp"`
-	Symbol    Contracts `json:"symbol"`
+	Symbol    Contract  `json:"symbol"`
 	BidPrice  float64   `json:"bidPrice"`
 	BidSize   int64     `json:"bidSize"`
 	AskPrice  float64   `json:"askPrice"`
@@ -34,7 +34,7 @@ type WSQuote struct {
 //WSPosition - position structure
 type WSPosition struct {
 	Timestamp        time.Time `json:"timestamp"`
-	Symbol           Contracts `json:"symbol"`
+	Symbol           Contract  `json:"symbol"`
 	Account          int64     `json:"account"`
 	CurrentQty       int64     `json:"currentQty"`
 	MarkPrice        float64   `json:"markPrice"`
@@ -62,10 +62,10 @@ type WSOrder struct {
 	AvgPx                 float64   `json:"avgPx"`
 	Side                  string    `json:"side"`
 	ClOrdID               string    `json:"clOrdID"`
-	Symbol                Contracts `json:"symbol"`
+	Symbol                Contract  `json:"symbol"`
 	PegPriceType          string    `json:"pegPriceType"`
-	Currency              Contracts `json:"currency"`
-	SettlCurrency         Contracts `json:"settlCurrency"`
+	Currency              Contract  `json:"currency"`
+	SettlCurrency         Contract  `json:"settlCurrency"`
 	ExecInst              string    `json:"execInst"`
 	ContingencyType       string    `json:"contingencyType"`
 	ExDestination         string    `json:"exDestination"`
@@ -82,7 +82,7 @@ type wsData struct {
 	Action      string            `json:"action"`
 	Keys        []string          `json:"keys"`
 	Attributes  map[string]string `json:"attributes"`
-	Types       map[string]string `json:"keys"`
+	Types       map[string]string `json:"types"`
 	ForeignKeys map[string]string `json:"foreignKeys"`
 	Data        json.RawMessage
 }

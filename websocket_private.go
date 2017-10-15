@@ -45,7 +45,7 @@ func (ws *WS) Nonce() int64 {
 }
 
 //SubOrder - subscribe to order events
-func (ws *WS) SubOrder(ch chan WSOrder, contracts []Contracts) chan struct{} {
+func (ws *WS) SubOrder(ch chan WSOrder, contracts []Contract) chan struct{} {
 	ws.Lock()
 
 	if _, ok := ws.chOrder[ch]; !ok {
@@ -60,7 +60,7 @@ func (ws *WS) SubOrder(ch chan WSOrder, contracts []Contracts) chan struct{} {
 }
 
 //SubPosition - subscribe to position chage events
-func (ws *WS) SubPosition(ch chan WSPosition, contracts []Contracts) chan struct{} {
+func (ws *WS) SubPosition(ch chan WSPosition, contracts []Contract) chan struct{} {
 	ws.Lock()
 
 	if _, ok := ws.chPosition[ch]; !ok {

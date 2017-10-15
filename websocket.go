@@ -17,26 +17,31 @@ const wsURL = "wss://www.bitmex.com/realtime"
 //WS - websocket connection object
 type WS struct {
 	sync.Mutex
-	conn       *websocket.Conn
-	log        *log.Logger
-	nonce      int64
-	key        string
-	secret     string
-	chTrade    map[chan WSTrade][]Contracts
-	chQuote    map[chan WSQuote][]Contracts
-	chOrder    map[chan WSOrder][]Contracts
-	chPosition map[chan WSPosition][]Contracts
-	chSucc     map[string][]chan struct{}
+	conn   *websocket.Conn
+	log    *log.Logger
+	nonce  int64
+	key    string
+	secret string
+	chSucc map[string][]chan struct{}
+	quit   chan struct{}
+
+	// channels subscribed to different contracts
+
+	chTrade    map[chan WSTrade][]Contract
+	chQuote    map[chan WSQuote][]Contract
+	chOrder    map[chan WSOrder][]Contract
+	chPosition map[chan WSPosition][]Contract
 }
 
 //NewWS - creates new websocket object
 func NewWS() *WS {
 	return &WS{
 		nonce:      time.Now().Unix(),
-		chTrade:    make(map[chan WSTrade][]Contracts, 0),
-		chQuote:    make(map[chan WSQuote][]Contracts, 0),
-		chOrder:    make(map[chan WSOrder][]Contracts, 0),
-		chPosition: make(map[chan WSPosition][]Contracts, 0),
+		quit:       make(chan struct{}),
+		chTrade:    make(map[chan WSTrade][]Contract, 0),
+		chQuote:    make(map[chan WSQuote][]Contract, 0),
+		chOrder:    make(map[chan WSOrder][]Contract, 0),
+		chPosition: make(map[chan WSPosition][]Contract, 0),
 		chSucc:     make(map[string][]chan struct{}, 0),
 	}
 }
@@ -59,16 +64,28 @@ func (ws *WS) Connect() error {
 }
 
 //Disconnect - Disconnects from websocket
-func (ws *WS) Disconnect() error {
+func (ws *WS) Disconnect() {
 	log.Info("Disconnecting")
+	close(ws.quit)
+	ws.conn.Close()
 	//TODO Close all channels
-	return ws.conn.Close()
+	return
 }
 
 func (ws *WS) read() {
 	for {
+		// TODO []byte
 		var msg string
-		websocket.Message.Receive(ws.conn, &msg)
+
+		err := websocket.Message.Receive(ws.conn, &msg)
+		if err != nil {
+			select {
+			case <-ws.quit:
+				return
+			default:
+				log.Fatalf("WS error: %v", err)
+			}
+		}
 
 		log.Debugf("Raw: %v", msg)
 
@@ -192,13 +209,15 @@ func (ws *WS) sendPosition(ch chan WSPosition, position WSPosition) {
 
 func (ws *WS) trade(trade WSTrade) {
 	for ch, symbols := range ws.chTrade {
+		// All
 		if len(symbols) == 0 {
 			ws.sendTrade(ch, trade)
 			continue
 		}
 
+		// Filtered
 		for _, oneSymbol := range symbols {
-			if oneSymbol == Contracts(trade.Symbol) {
+			if oneSymbol == Contract(trade.Symbol) {
 				ws.sendTrade(ch, trade)
 			}
 		}
@@ -207,13 +226,15 @@ func (ws *WS) trade(trade WSTrade) {
 
 func (ws *WS) order(order WSOrder) {
 	for ch, symbols := range ws.chOrder {
+		// All
 		if len(symbols) == 0 {
 			ws.sendOrder(ch, order)
 			continue
 		}
 
+		// Filtered
 		for _, oneSymbol := range symbols {
-			if oneSymbol == Contracts(order.Symbol) {
+			if oneSymbol == Contract(order.Symbol) {
 				ws.sendOrder(ch, order)
 			}
 		}
@@ -222,13 +243,15 @@ func (ws *WS) order(order WSOrder) {
 
 func (ws *WS) position(position WSPosition) {
 	for ch, symbols := range ws.chPosition {
+		// All
 		if len(symbols) == 0 {
 			ws.sendPosition(ch, position)
 			continue
 		}
 
+		// Filtered
 		for _, oneSymbol := range symbols {
-			if oneSymbol == Contracts(position.Symbol) {
+			if oneSymbol == Contract(position.Symbol) {
 				ws.sendPosition(ch, position)
 			}
 		}
@@ -237,19 +260,22 @@ func (ws *WS) position(position WSPosition) {
 
 func (ws *WS) quote(quote WSQuote) {
 	for ch, symbols := range ws.chQuote {
+		// All
 		if len(symbols) == 0 {
 			ws.sendQuote(ch, quote)
 			continue
 		}
 
+		// Filtered
 		for _, oneSymbol := range symbols {
-			if oneSymbol == Contracts(quote.Symbol) {
+			if oneSymbol == Contract(quote.Symbol) {
 				ws.sendQuote(ch, quote)
 			}
 		}
 	}
 }
 
+//Writing to WS
 func (ws *WS) send(msg string) {
 	defer ws.Unlock()
 
@@ -267,36 +293,36 @@ func (ws *WS) fatal(err error) {
 }
 
 //SubTrade - subscribes channel to trades
-func (ws *WS) SubTrade(ch chan WSTrade, contracts []Contracts) {
+func (ws *WS) SubTrade(ch chan WSTrade, contract []Contract) {
 	ws.Lock()
 
 	if _, ok := ws.chTrade[ch]; !ok {
-		ws.chTrade[ch] = contracts
+		ws.chTrade[ch] = contract
 	} else {
-		ws.chTrade[ch] = append(ws.chTrade[ch], contracts...)
+		ws.chTrade[ch] = append(ws.chTrade[ch], contract...)
 	}
 
 	ws.Unlock()
 
-	for _, one := range contracts {
+	for _, one := range contract {
 		ws.send(`{"op": "subscribe", "args": "trade:` + string(one) + `"}`)
 	}
 }
 
 //SubQuote - subscribes to quotes
-func (ws *WS) SubQuote(ch chan WSQuote, contracts []Contracts) {
+func (ws *WS) SubQuote(ch chan WSQuote, contract []Contract) {
 
 	ws.Lock()
 
 	if _, ok := ws.chQuote[ch]; !ok {
-		ws.chQuote[ch] = contracts
+		ws.chQuote[ch] = contract
 	} else {
-		ws.chQuote[ch] = append(ws.chQuote[ch], contracts...)
+		ws.chQuote[ch] = append(ws.chQuote[ch], contract...)
 	}
 
 	ws.Unlock()
 
-	for _, one := range contracts {
+	for _, one := range contract {
 		ws.send(`{"op": "subscribe", "args": "quote:` + string(one) + `"}`)
 	}
 }
