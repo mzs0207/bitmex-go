@@ -45,7 +45,7 @@ func (ws *WS) Nonce() int64 {
 }
 
 //SubOrder - subscribe to order events
-func (ws *WS) SubOrder(ch chan WSOrder, contracts []Contract) chan struct{} {
+func (ws *WS) SubOrder(ch chan Order, contracts []Contract) chan struct{} {
 	ws.Lock()
 
 	if _, ok := ws.chOrder[ch]; !ok {

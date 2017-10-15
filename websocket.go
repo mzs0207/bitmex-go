@@ -29,7 +29,7 @@ type WS struct {
 
 	chTrade    map[chan WSTrade][]Contract
 	chQuote    map[chan WSQuote][]Contract
-	chOrder    map[chan WSOrder][]Contract
+	chOrder    map[chan Order][]Contract
 	chPosition map[chan WSPosition][]Contract
 }
 
@@ -40,7 +40,7 @@ func NewWS() *WS {
 		quit:       make(chan struct{}),
 		chTrade:    make(map[chan WSTrade][]Contract, 0),
 		chQuote:    make(map[chan WSQuote][]Contract, 0),
-		chOrder:    make(map[chan WSOrder][]Contract, 0),
+		chOrder:    make(map[chan Order][]Contract, 0),
 		chPosition: make(map[chan WSPosition][]Contract, 0),
 		chSucc:     make(map[string][]chan struct{}, 0),
 	}
@@ -146,7 +146,7 @@ func (ws *WS) read() {
 				}
 
 			case "order":
-				var orders []WSOrder
+				var orders []Order
 				json.Unmarshal(table.Data, &orders)
 
 				log.Debugf("Orders: %#v", orders)
@@ -180,7 +180,7 @@ func (ws *WS) sendTrade(ch chan WSTrade, trade WSTrade) {
 	}
 }
 
-func (ws *WS) sendOrder(ch chan WSOrder, order WSOrder) {
+func (ws *WS) sendOrder(ch chan Order, order Order) {
 	select {
 	case ch <- order:
 		log.Debugf("Order sent: %#v - %#v", ch, order)
@@ -224,7 +224,7 @@ func (ws *WS) trade(trade WSTrade) {
 	}
 }
 
-func (ws *WS) order(order WSOrder) {
+func (ws *WS) order(order Order) {
 	for ch, symbols := range ws.chOrder {
 		// All
 		if len(symbols) == 0 {

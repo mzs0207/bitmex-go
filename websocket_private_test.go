@@ -70,7 +70,7 @@ var _ = Describe("WebsocketPrivate", func() {
 
 		<-chAuth
 
-		chOrder := make(chan bitmex.WSOrder)
+		chOrder := make(chan bitmex.Order)
 		_ = ws.SubOrder(chOrder, []bitmex.Contract{})
 
 		select {
