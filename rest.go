@@ -36,7 +36,7 @@ func NewREST() *REST {
 		client: &http.Client{Transport: tr},
 		key:    os.Getenv("BITMEX_KEY"),
 		secret: os.Getenv("BITMEX_SECRET"),
-		nonce:  time.Now().Unix(),
+		nonce:  time.Now().UnixNano() / int64(time.Millisecond),
 	}
 }
 

@@ -36,7 +36,7 @@ type WS struct {
 //NewWS - creates new websocket object
 func NewWS() *WS {
 	return &WS{
-		nonce:      time.Now().Unix(),
+		nonce:      time.Now().UnixNano() / int64(time.Millisecond),
 		quit:       make(chan struct{}),
 		chTrade:    make(map[chan WSTrade][]Contract, 0),
 		chQuote:    make(map[chan WSQuote][]Contract, 0),
