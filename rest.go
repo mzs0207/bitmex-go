@@ -7,10 +7,13 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"strconv"
 	"time"
+
+	uuid "github.com/satori/go.uuid"
 )
 
 const (
@@ -55,6 +58,120 @@ func (r *REST) Send(order *Order) error {
 
 	_, err = r.client.Do(req)
 	return err
+}
+
+//OrderSend 发送订单 .
+func (r *REST) OrderSend(order *Order) (Order, error) {
+	o := Order{}
+	body, err := json.Marshal(order)
+	req, err := r.request("POST", "/order", body)
+	if err != nil {
+		return o, err
+	}
+	resp, err := r.client.Do(req)
+	if err != nil {
+		return o, err
+	}
+	defer resp.Body.Close()
+
+	respbody, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return o, err
+	}
+	fmt.Println(string(respbody))
+	err = json.Unmarshal(respbody, &o)
+	return o, nil
+}
+
+// Order 生成订单的基础方法.
+func (r *REST) Order(symbol string, price float64, amount float64, side, orderType string, postOnly bool) (Order, error) {
+	o := NewOrder(Contract(symbol))
+	o.Price = price
+	o.OrderQty = amount
+	o.Side = side
+	o.OrdType = orderType
+	if postOnly {
+		o.ExecInst = ParticipateDoNotInitiate
+	}
+
+	return r.OrderSend(o)
+
+}
+
+// LimitOrder 限价单.
+func (r *REST) LimitOrder(symbol string, price float64, amount float64, side string, postOnly bool) (Order, error) {
+	return r.Order(symbol, price, amount, side, Limit, postOnly)
+}
+
+// LimitBuyOrder 限价单买.
+func (r *REST) LimitBuyOrder(symbol string, price float64, amount float64, postOnly bool) (Order, error) {
+	return r.LimitOrder(symbol, price, amount, "Buy", postOnly)
+}
+
+// LimitSellOrder 限价单买.
+func (r *REST) LimitSellOrder(symbol string, price float64, amount float64, postOnly bool) (Order, error) {
+	return r.LimitOrder(symbol, price, amount, "Sell", postOnly)
+}
+
+// MarketOrder 市价单.
+func (r *REST) MarketOrder(symbol string, price float64, amount float64, side string) (Order, error) {
+	return r.Order(symbol, price, amount, side, Market, false)
+}
+
+// MarketBuyOrder 市价买单.
+func (r *REST) MarketBuyOrder(symbol string, price float64, amount float64) (Order, error) {
+	return r.Order(symbol, price, amount, "Buy", Market, false)
+}
+
+// MarketSellOrder 市价买单.
+func (r *REST) MarketSellOrder(symbol string, price float64, amount float64) (Order, error) {
+	return r.Order(symbol, price, amount, "Sell", Market, false)
+}
+
+// CancelOrder 取消订单.
+func (r *REST) CancelOrder(orderID uuid.UUID) error {
+	o := Order{}
+	o.OrderID = orderID
+	body, err := json.Marshal(o)
+	req, err := r.request("DELETE", "/order", body)
+	if err != nil {
+		return err
+	}
+	resp, err := r.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	respbody, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	fmt.Println(string(respbody))
+	return nil
+}
+
+// ModifyOrder 修改订单.
+func (r *REST) ModifyOrder(order Order) (Order, error) {
+	o := Order{}
+	body, err := json.Marshal(order)
+	req, err := r.request("PUT", "/order", body)
+	if err != nil {
+		return o, err
+	}
+	resp, err := r.client.Do(req)
+	if err != nil {
+		return o, err
+	}
+	defer resp.Body.Close()
+
+	respbody, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return o, err
+	}
+	fmt.Println(string(respbody))
+	err = json.Unmarshal(respbody, &o)
+	return o, nil
 }
 
 func (r *REST) getNonce() int64 {

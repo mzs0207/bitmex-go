@@ -166,7 +166,7 @@ func (ws *WS) read() {
 				}
 			}
 		default:
-			ws.fatal(errors.New("Unkown WS message"))
+			ws.fatal(errors.New("Unknown WS message"))
 		}
 	}
 }
